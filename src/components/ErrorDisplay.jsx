@@ -17,7 +17,7 @@ const ErrorDisplay = ({ message, onRetry }) => {
       {onRetry && (
         <button
           onClick={onRetry}
-          className="px-4 py-2 bg-red-600 text-white
+          className="px-4 py-2 bg-red-600 
         rounded-md hover:bg-red-700 transition-colors"
         >
           Try again

@@ -1,5 +1,5 @@
 import React from "react";
-import { Calender } from "lucide-react";
+import { Calendar } from "lucide-react";
 
 const Header = () => {
   return (
@@ -9,7 +9,7 @@ const Header = () => {
     >
       <div className="container mx-auto flex items-center">
         <div className="bg-white/20p-2 5 rounded-lg mr-4">
-          <Calender size={24} className="text-white" />
+          <Calendar size={24} className="text-white" />
         </div>
       </div>
       <h1 className="text-2xl font-bold">National Holidays</h1>
