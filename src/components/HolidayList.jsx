@@ -30,7 +30,7 @@ const HolidayList = ({ holidays, isLoading, error }) => {
       "September",
       "October",
       "November",
-      "December",
+      "December"
     ];
 
     return Object.entries(grouped).sort(([monthA], [monthB]) => {
@@ -43,7 +43,7 @@ const HolidayList = ({ holidays, isLoading, error }) => {
       <div className="w-full flex flex-col items-center justify-center py-12">
         <div className="animate-pulse flex flex-col items-center">
           <div className="rounded-full bg-blue-400 h-12 w-12 mb-4"></div>
-          <div className="h-4 bg-gray-300 rounded w-48 mb-2 5"></div>
+          <div className="h-4 bg-gray-300 rounded w-48 mb-2.5"></div>
           <div className="h-3 bg-gray-300 rounded w-32"></div>
         </div>
         <p className="mt-4 text-gray-">Loading holidays</p>
@@ -88,8 +88,8 @@ const HolidayList = ({ holidays, isLoading, error }) => {
             {month}
           </h2>
           <div className="space-y-3">
-            {monthHolidays.map((holiday) => (
-              <HolidayItem key={holiday.id} holiday={holiday} />
+            {monthHolidays.map((holiday, index) => (
+              <HolidayItem key={`${holiday.date} - ${holiday.name} - ${index}`} holiday={holiday} />
             ))}
           </div>
         </div>

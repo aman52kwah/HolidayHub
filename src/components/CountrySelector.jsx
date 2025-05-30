@@ -29,7 +29,7 @@ const CountrySelector = ({
           value={selectedCountry}
           onChange={handleChange}
           disabled={isLoading || countries.length === 0}
-          className={`block w-dull py-2.5 px-4 pr-10 text-base bg-white
+          className={`block w-full py-2.5 px-4 pr-10 text-base bg-white
                  border border-gray-300 rounded-lg shadow-sm focus:outline-none
                  focus:ring-2 focus:ring-blue-500
                  focus:border-blue-500 appearance-none
@@ -60,7 +60,7 @@ const CountrySelector = ({
       <p className="mt-1 text-sm text-gray-500">
         {isLoading
           ? "Loading availabe countries..."
-          : `Currently showind holidays for ${selectedCountryName}`}
+          : `Currently showing holidays for ${selectedCountryName}`}
       </p>
     </div>
   );
