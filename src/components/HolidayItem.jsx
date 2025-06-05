@@ -18,8 +18,6 @@ const HolidayItem = ({ holiday }) => {
     setExpanded(!expanded);
   };
 
-  const isMultiDay = holiday.startDate !== holiday.endDate;
-
   return (
     <div
       className={`bg-white rounded-lg border border-gray-200 shadow-sm 
@@ -39,12 +37,7 @@ const HolidayItem = ({ holiday }) => {
           </div>
           <div>
             <h3 className="font-medium text-gray-900">{holiday.name}</h3>
-            <p className="tex-sm text-">
-              {isMultiDay
-                ? `${formatDate(holiday.startDate)}-
-                        ${formatDate(holiday.endDate)}`
-                : formatDate(holiday.startDate)}
-            </p>
+            <p className="tex-sm text-">{formatDate(holiday.startDate)}</p>
           </div>
         </div>
         <button

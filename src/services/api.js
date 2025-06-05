@@ -43,16 +43,21 @@ export const fetchHolidays = async (countryIsoCode) => {
                 ${response.status}`);
     }
     const holidays = await response.json();
+    
     return holidays.map((holiday) => ({
       ...holiday,
       startDate: holiday.date,
       name: holiday.localName || holiday.name,
+      
     }));
+    
   } catch (error) {
     console.error("Error fetching holidays:", error);
     throw error;
   }
+
 };
+  
 
 export const FALLBACK_COUNTRIES = [
   { isoCode: "US", name: "United States" },

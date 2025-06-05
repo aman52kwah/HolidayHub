@@ -1,20 +1,23 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { fetchHolidays,fetchCountriesWithFallback } from "./services/api";
+import { fetchHolidays, fetchCountriesWithFallback } from "./services/api";
 import CountrySelector from "./components/CountrySelector";
 import HolidayList from "./components/HolidayList";
 import Header from "./components/Header";
 import ErrorDisplay from "./components/ErrorDisplay";
 import { Globe, RefreshCw } from "lucide-react";
 import "./App.css";
+import { useLocalStorage } from "./hooks/useLocalStorage";
 
 // Default country settings
 const DEFAULT_COUNTRY = {
-  code: "ZA",
-  name: "south africa",
-  
+  code: "US",
+  name: "United States",
 };
 
 function App() {
+ const [getValue, setValue] = useLocalStorage("selected-country", "");
+ setValue("newValue");
+ const [getStoredCountry, setStoredCountry] = useLocalStorage("selected-country", DEFAULT_COUNTRY.code);
   const [countries, setCountries] = useState([]);
   const [holidays, setHolidays] = useState([]);
   const [selectedCountry, setSelectedCountry] = useState(DEFAULT_COUNTRY.code);
@@ -43,24 +46,38 @@ function App() {
   });
 
   useEffect(() => {
+    setSelectedCountry(getValue())
     const getCountries = async () => {
       try {
         setLoadingStates((prev) => ({ ...prev, countries: true }));
-        setErrors(  (prev) => ({ ...prev, country: null }));
+        setErrors((prev) => ({ ...prev, country: null }));
 
-        const fetchedCountries = await fetchDataWithRetry(fetchCountriesWithFallback);
+        const fetchedCountries = await fetchDataWithRetry(
+          fetchCountriesWithFallback
+        );
         setCountries(fetchedCountries);
 
         // Verify if default country exists in the list, otherwise use first available
         const defaultCountryExists = fetchedCountries.some(
           (c) => c.isoCode === DEFAULT_COUNTRY.code
         );
+        const currentStoredCountry = getStoredCountry();
+        const storedCountryExists =fetchedCountries.some(
+          (c) => c.isoCode === currentStoredCountry
+        );
 
-        if (!defaultCountryExists && fetchedCountries.length > 0) {
+        if(storedCountryExists){
+          setSelectedCountry(currentStoredCountry);
+        } else if (defaultCountryExists) {
+          setSelectedCountry(DEFAULT_COUNTRY.code);
+          setStoredCountry(DEFAULT_COUNTRY.code);
+        } else if (fetchedCountries.length > 0) {
           setSelectedCountry(fetchedCountries[0].isoCode);
+          setStoredCountry(fetchedCountries[0].isoCode);
           console.warn(
-            `${DEFAULT_COUNTRY.name} not found in countries list. Using ${fetchedCountries[0].name} as default.`
+            `${DEFAULT_COUNTRY.name} not found and stored country invalid. Using ${fetchedCountries[0].name} as default.`
           );
+        
         }
       } catch (error) {
         console.error("Error fetching countries:", error);
@@ -89,7 +106,7 @@ function App() {
         const fetchedHolidays = await fetchDataWithRetry(() =>
           fetchHolidays(selectedCountry)
         );
-        console.log("Received holidays:",fetchedHolidays);
+        console.log("Received holidays:", fetchedHolidays);
 
         const sortedHolidays = fetchedHolidays.sort(
           (a, b) => new Date(a.startDate) - new Date(b.startDate)
@@ -107,10 +124,11 @@ function App() {
     };
 
     getHolidays();
-  },[selectedCountry]);
+  }, [selectedCountry,fetchDataWithRetry]);
 
   const handleCountryChange = (countryCode) => {
     setSelectedCountry(countryCode);
+    // setStoredCountry(countryCode);
   };
 
   const retryFetchCountries = useCallback(() => {
@@ -129,8 +147,11 @@ function App() {
       .finally(() =>
         setLoadingStates((prev) => ({ ...prev, countries: false }))
       );
-  },[fetchDataWithRetry]);
-
+  }, [fetchDataWithRetry]);
+  console.log(
+    "country.find",
+    countries.find((c) => c.isoCode === selectedCountry)
+  );
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <Header />
@@ -144,6 +165,7 @@ function App() {
           <div className="max-w-5xl mx-auto">
             <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
               <div className="flex flex-col gap-4">
+
                 <CountrySelector
                   countries={countries}
                   selectedCountry={selectedCountry}
@@ -184,7 +206,6 @@ function App() {
                 holidays={holidays}
                 isLoading={loadingStates.holidays}
                 error={errors.holiday}
-
               />
             </div>
           </div>
@@ -202,4 +223,3 @@ function App() {
 }
 
 export default App;
-

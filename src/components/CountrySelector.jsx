@@ -1,5 +1,6 @@
 import React from "react";
 import { ChevronDown } from "lucide-react";
+import { useLocalStorage } from "../hooks/useLocalStorage";
 
 const CountrySelector = ({
   countries,
@@ -7,8 +8,12 @@ const CountrySelector = ({
   isLoading,
   onSelectCountry,
 }) => {
+
+const [setValue] = useLocalStorage("selected-country", selectedCountry);
+
   const handleChange = (e) => {
     onSelectCountry(e.target.value);
+    setValue(e.target.value);
   };
 
   const selectedCountryName =
