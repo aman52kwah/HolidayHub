@@ -219,10 +219,7 @@ const selectedCountryName = countries.find((c) =>c.isoCode == selectedCountry)?.
                   ? "Loading holidays..."
                   : errors.holiday
                   ? "Holiday Data Unavailable"
-                  : `${new Date().getFullYear()} Public Holidays in ${
-                      countries.find((c) => c.isoCode === selectedCountry)
-                        ?.name || DEFAULT_COUNTRY.name
-                    }`}
+                  : `${new Date().getFullYear()} Public Holidays in ${selectedCountryName}`}
               </h2>
               <HolidayList
                 holidays={holidays}
