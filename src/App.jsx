@@ -15,12 +15,15 @@ const DEFAULT_COUNTRY = {
 };
 
 function App() {
- const [getValue, setValue] = useLocalStorage("selected-country", "");
- setValue("newValue");
- const [getStoredCountry, setStoredCountry] = useLocalStorage("selected-country", DEFAULT_COUNTRY.code);
+  //const [getValue, setValue] = useLocalStorage("selected-country", "");
+  //setValue("newValue");
+  const [storedCountry, setStoredCountry] = useLocalStorage(
+    "selected-country",
+    DEFAULT_COUNTRY.code
+  );
   const [countries, setCountries] = useState([]);
   const [holidays, setHolidays] = useState([]);
-  const [selectedCountry, setSelectedCountry] = useState(DEFAULT_COUNTRY.code);
+  const [selectedCountry, setSelectedCountry] = useState(storedCountry);
   const [loadingStates, setLoadingStates] = useState({
     countries: true,
     holidays: true,
@@ -43,10 +46,9 @@ function App() {
       }
       throw error;
     }
-  });
+  }, []);
 
   useEffect(() => {
-    setSelectedCountry(getValue())
     const getCountries = async () => {
       try {
         setLoadingStates((prev) => ({ ...prev, countries: true }));
@@ -61,23 +63,27 @@ function App() {
         const defaultCountryExists = fetchedCountries.some(
           (c) => c.isoCode === DEFAULT_COUNTRY.code
         );
-        const currentStoredCountry = getStoredCountry();
-        const storedCountryExists =fetchedCountries.some(
+        const currentStoredCountry = storedCountry();
+        //verify if stored country exists in the list
+        const storedCountryExists = fetchedCountries.some(
           (c) => c.isoCode === currentStoredCountry
         );
 
-        if(storedCountryExists){
-          setSelectedCountry(currentStoredCountry);
+        if (storedCountryExists) {
+          //use stored country if it's valid
+          setSelectedCountry(storedCountry);
         } else if (defaultCountryExists) {
+          //fal back to default country
           setSelectedCountry(DEFAULT_COUNTRY.code);
           setStoredCountry(DEFAULT_COUNTRY.code);
         } else if (fetchedCountries.length > 0) {
-          setSelectedCountry(fetchedCountries[0].isoCode);
-          setStoredCountry(fetchedCountries[0].isoCode);
+          //use first available country if neither stored nor default exist
+          const firstCountry = fetchedCountries[0].isoCode;
+          setSelectedCountry(firstCountry);
+          setStoredCountry(firstCountry);
           console.warn(
-            `${DEFAULT_COUNTRY.name} not found and stored country invalid. Using ${fetchedCountries[0].name} as default.`
+            `Neither stored country ${storedCountry} nor ${DEFAULT_COUNTRY.name} found. Using ${fetchedCountries[0].name} as default.`
           );
-        
         }
       } catch (error) {
         console.error("Error fetching countries:", error);
@@ -91,7 +97,7 @@ function App() {
     };
 
     getCountries();
-  }, []);
+  }, [fetchDataWithRetry, setStoredCountry, storedCountry]);
 
   useEffect(() => {
     const getHolidays = async () => {
@@ -124,20 +130,33 @@ function App() {
     };
 
     getHolidays();
-  }, [selectedCountry,fetchDataWithRetry]);
-
+  }, [selectedCountry, fetchDataWithRetry]);
+//now properly saves selected country to localStorage
   const handleCountryChange = (countryCode) => {
     setSelectedCountry(countryCode);
-    // setStoredCountry(countryCode);
+    setStoredCountry(countryCode);
   };
 
   const retryFetchCountries = useCallback(() => {
-    setCountries([]);
+setLoadingStates((prev) => ({ ...prev, countries: true}));
     setErrors((prev) => ({ ...prev, country: null }));
-    setLoadingStates((prev) => ({ ...prev, countries: false }));
+    
 
     fetchDataWithRetry(fetchCountriesWithFallback)
-      .then(setCountries)
+      .then((fetchedCountries)=>{
+        setCountries(fetchedCountries);
+
+        //re-validate selected countryafter retry
+        const selectedCountryExists = fetchedCountries.some(
+          (c)=>c.isoCode === selectedCountry
+        );
+        if(!selectedCountryExists && fetchedCountries.length > 0){
+          const firstCountry = fetchedCountries[0].isoCode;
+          setSelectedCountry(firstCountry);
+          setStoredCountry(firstCountry);
+        }
+
+      })
       .catch((error) => {
         setErrors((prev) => ({
           ...prev,
@@ -147,7 +166,11 @@ function App() {
       .finally(() =>
         setLoadingStates((prev) => ({ ...prev, countries: false }))
       );
-  }, [fetchDataWithRetry]);
+  }, [fetchDataWithRetry,selectedCountry, setStoredCountry]);
+  
+//get selected country name for display
+const selectedCountryName = countries.find((c) =>c.isoCode == selectedCountry)?.name || DEFAULT_COUNTRY.name;
+
   console.log(
     "country.find",
     countries.find((c) => c.isoCode === selectedCountry)
@@ -165,7 +188,6 @@ function App() {
           <div className="max-w-5xl mx-auto">
             <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
               <div className="flex flex-col gap-4">
-
                 <CountrySelector
                   countries={countries}
                   selectedCountry={selectedCountry}

@@ -6,6 +6,7 @@ export const fetchCountries = async () => {
     const response = await fetch(`${API_BASE_URL}/AvailableCountries`, {
       headers: {
         Accept: "application/json",
+        
       },
     });
 
