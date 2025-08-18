@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { fetchHolidays, fetchCountriesWithFallback } from "./services/api";
 import CountrySelector from "./components/CountrySelector";
 import HolidayList from "./components/HolidayList";
@@ -6,7 +6,6 @@ import Header from "./components/Header";
 import ErrorDisplay from "./components/ErrorDisplay";
 import { Globe, RefreshCw } from "lucide-react";
 import "./App.css";
-import { useLocalStorage } from "./hooks/useLocalStorage";
 
 // Default country settings
 const DEFAULT_COUNTRY = {
@@ -14,17 +13,29 @@ const DEFAULT_COUNTRY = {
   name: "United States",
 };
 
+const getStoredCountry= ()=>{
+  try {
+    return localStorage.getItem("selected-country")|| DEFAULT_COUNTRY.code;
+  } catch (error) {
+    console.warn("Failed to read from localStorage:",error);
+    return DEFAULT_COUNTRY.code;
+  }
+};
+
+const setStoredCountry =(countryCode) => {
+  try {
+    localStorage.setItem("selected-country", countryCode);
+  } catch (error) {
+    console.warn("failed to write to localStorage:",error);
+  }
+};
+
 function App() {
-  //const [getValue, setValue] = useLocalStorage("selected-country", "");
-  //setValue("newValue");
-  const [storedCountry, setStoredCountry] = useLocalStorage(
-    "selected-country",
-    DEFAULT_COUNTRY.code
-  );
   const [countries, setCountries] = useState([]);
   const [holidays, setHolidays] = useState([]);
-  const [selectedCountry, setSelectedCountry] = useState(storedCountry);
-  const [loadingStates, setLoadingStates] = useState({
+  const [selectedCountry, setSelectedCountry] = useState(()=>getStoredCountry());
+  // const memoizedSetStoredCountry = useCallback(setStoredCountry,[setStoredCountry]);
+   const [loadingStates, setLoadingStates] = useState({
     countries: true,
     holidays: true,
   });
@@ -35,7 +46,8 @@ function App() {
 
   // Enhanced fetch with retry logic
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const fetchDataWithRetry = useCallback(async (fetchFn, retries = 3) => {
+  const fetchDataWithRetry =useMemo(() =>{
+    return async (fetchFn, retries = 3) => {
     try {
       return await fetchFn();
     } catch (error) {
@@ -46,9 +58,12 @@ function App() {
       }
       throw error;
     }
-  }, []);
+  };
+  }, []); //empty depency array since this function doesn't depend on any external values
 
+  // fetch countries only once on mount
   useEffect(() => {
+    let isMounted = true; //cleanup flag to prevent state update after unmount
     const getCountries = async () => {
       try {
         setLoadingStates((prev) => ({ ...prev, countries: true }));
@@ -57,52 +72,74 @@ function App() {
         const fetchedCountries = await fetchDataWithRetry(
           fetchCountriesWithFallback
         );
+        if(!isMounted) return; // Prevent state update if component unmounted
         setCountries(fetchedCountries);
 
         // Verify if default country exists in the list, otherwise use first available
+        const storedCountry = getStoredCountry();
+
+        const storedCountryExists = fetchedCountries.some(
+          (c) => c.isoCode === storedCountry
+        );
+
         const defaultCountryExists = fetchedCountries.some(
           (c) => c.isoCode === DEFAULT_COUNTRY.code
         );
-        const currentStoredCountry = storedCountry();
+        //const currentStoredCountry = storedCountry();
         //verify if stored country exists in the list
-        const storedCountryExists = fetchedCountries.some(
-          (c) => c.isoCode === currentStoredCountry
-        );
+        
+        let countryToSelect = storedCountry;
 
-        if (storedCountryExists) {
-          //use stored country if it's valid
-          setSelectedCountry(storedCountry);
-        } else if (defaultCountryExists) {
-          //fal back to default country
-          setSelectedCountry(DEFAULT_COUNTRY.code);
-          setStoredCountry(DEFAULT_COUNTRY.code);
-        } else if (fetchedCountries.length > 0) {
+        if (!storedCountryExists) {
+          if(defaultCountryExists){
+            countryToSelect = DEFAULT_COUNTRY.code;
+          }
+          else if (fetchedCountries.length > 0) {
           //use first available country if neither stored nor default exist
-          const firstCountry = fetchedCountries[0].isoCode;
-          setSelectedCountry(firstCountry);
-          setStoredCountry(firstCountry);
+          countryToSelect = fetchedCountries[0].isoCode;
           console.warn(
             `Neither stored country ${storedCountry} nor ${DEFAULT_COUNTRY.name} found. Using ${fetchedCountries[0].name} as default.`
           );
         }
-      } catch (error) {
+
+        //  Update both state and localStorage
+        setSelectedCountry(countryToSelect);
+        setStoredCountry(countryToSelect);
+
+      } else{
+        setSelectedCountry(storedCountry);
+      }
+      
+      }
+      catch (error) {
+        if(!isMounted) return;
         console.error("Error fetching countries:", error);
         setErrors((prev) => ({
           ...prev,
           country: `Failed to load countries. ${error.message}`,
         }));
       } finally {
+        if(isMounted)
         setLoadingStates((prev) => ({ ...prev, countries: false }));
       }
     };
 
     getCountries();
-  }, [fetchDataWithRetry, setStoredCountry, storedCountry]);
 
+    // cleanup function
+    return () => {
+      isMounted = false;
+    };
+  }, [fetchDataWithRetry]);
+
+
+  // fetch holidays when selected country changes
   useEffect(() => {
-    const getHolidays = async () => {
-      if (!selectedCountry) return;
+    if (!selectedCountry) return;
 
+    let isMounted = true;
+
+    const getHolidays = async () => {
       try {
         setLoadingStates((prev) => ({ ...prev, holidays: true }));
         setErrors((prev) => ({ ...prev, holiday: null }));
@@ -112,6 +149,7 @@ function App() {
         const fetchedHolidays = await fetchDataWithRetry(() =>
           fetchHolidays(selectedCountry)
         );
+        if(!isMounted) return
         console.log("Received holidays:", fetchedHolidays);
 
         const sortedHolidays = fetchedHolidays.sort(
@@ -119,24 +157,35 @@ function App() {
         );
         setHolidays(sortedHolidays);
       } catch (error) {
+        if(isMounted) return;
         console.error("Error fetching holidays:", error);
         setErrors((prev) => ({
           ...prev,
           holiday: `Failed to load holidays for ${selectedCountry}. ${error.message}`,
         }));
       } finally {
-        setLoadingStates((prev) => ({ ...prev, holidays: false }));
+        if(isMounted){
+          setLoadingStates((prev) => ({ ...prev, holidays: false }));
+        }
+        
       }
     };
 
     getHolidays();
+    
+    return() =>{
+      isMounted = false;
+    };
   }, [selectedCountry, fetchDataWithRetry]);
+
 //now properly saves selected country to localStorage
-  const handleCountryChange = (countryCode) => {
+//handle country selection
+  const handleCountryChange = useCallback((countryCode) => {
     setSelectedCountry(countryCode);
     setStoredCountry(countryCode);
-  };
+  },[]);
 
+  //retry function for countries
   const retryFetchCountries = useCallback(() => {
 setLoadingStates((prev) => ({ ...prev, countries: true}));
     setErrors((prev) => ({ ...prev, country: null }));
@@ -166,15 +215,14 @@ setLoadingStates((prev) => ({ ...prev, countries: true}));
       .finally(() =>
         setLoadingStates((prev) => ({ ...prev, countries: false }))
       );
-  }, [fetchDataWithRetry,selectedCountry, setStoredCountry]);
+  }, [fetchDataWithRetry,selectedCountry]);
   
 //get selected country name for display
-const selectedCountryName = countries.find((c) =>c.isoCode == selectedCountry)?.name || DEFAULT_COUNTRY.name;
+const selectedCountryName = useMemo(() =>{
+return countries.find((c) =>c.isoCode == selectedCountry)?.name || DEFAULT_COUNTRY.name;
+},[countries,selectedCountry]); 
 
-  console.log(
-    "country.find",
-    countries.find((c) => c.isoCode === selectedCountry)
-  );
+  
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <Header />
